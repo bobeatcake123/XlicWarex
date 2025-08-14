@@ -1,0 +1,164 @@
+-- LocalScript
+local player = game.Players.LocalPlayer
+local runService = game:GetService("RunService")
+local userInput = game:GetService("UserInputService")
+
+local bringAllLoop
+local bringSingleLoop
+
+-- GUI Setup
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "XlicBringUI"
+screenGui.ResetOnSpawn = false
+
+-- UI Toggle Key
+local uiVisible = true
+userInput.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.L then
+		uiVisible = not uiVisible
+		screenGui.Enabled = uiVisible
+	end
+end)
+
+-- Helper: Adds a blue outline
+local function addOutline(obj, thickness)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = thickness or 2
+	stroke.Color = Color3.fromRGB(0, 122, 255)
+	stroke.Parent = obj
+end
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 250)
+frame.Position = UDim2.new(0.5, -150, 0.5, -125)
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+frame.Parent = screenGui
+frame.Active = true
+frame.Draggable = true
+addOutline(frame, 2)
+
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 12)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "Xlic Bring Tool"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+title.TextColor3 = Color3.fromRGB(0, 170, 255)
+title.Parent = frame
+
+-- Button creation helper
+local function createButton(text, position, parent)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 260, 0, 35)
+	btn.Position = position
+	btn.Text = text
+	btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	btn.TextColor3 = Color3.fromRGB(0, 170, 255)
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 18
+	btn.Parent = parent
+	local corner = Instance.new("UICorner", btn)
+	corner.CornerRadius = UDim.new(0, 8)
+	addOutline(btn, 1.5)
+	return btn
+end
+
+-- Buttons
+local bringAllBtn = createButton("Loop Bring All", UDim2.new(0, 20, 0, 50), frame)
+local stopBtn = createButton("Unloop Bring", UDim2.new(0, 20, 0, 95), frame)
+local oneLoopBtn = createButton("Loop Bring One", UDim2.new(0, 20, 0, 185), frame)
+
+-- TextBox
+local nameBox = Instance.new("TextBox")
+nameBox.Size = UDim2.new(0, 260, 0, 35)
+nameBox.Position = UDim2.new(0, 20, 0, 140)
+nameBox.PlaceholderText = "Enter Display Name"
+nameBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+nameBox.TextColor3 = Color3.fromRGB(0, 170, 255)
+nameBox.Font = Enum.Font.Gotham
+nameBox.TextSize = 18
+nameBox.ClearTextOnFocus = false
+nameBox.Parent = frame
+local nameCorner = Instance.new("UICorner", nameBox)
+nameCorner.CornerRadius = UDim.new(0, 8)
+addOutline(nameBox, 1.5)
+
+-- Functions
+local function loopBringAll()
+	if bringAllLoop then return end
+	bringAllLoop = runService.RenderStepped:Connect(function()
+		local myChar = player.Character
+		if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+		for _, plr in pairs(game.Players:GetPlayers()) do
+			if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+				local root = plr.Character.HumanoidRootPart
+				local dir = (root.Position - myChar.HumanoidRootPart.Position).Unit
+				root.CFrame = CFrame.new(myChar.HumanoidRootPart.Position + dir * 3)
+				local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+				if hum then
+					hum.PlatformStand = true
+					root.CanCollide = false
+				end
+			end
+		end
+	end)
+end
+
+local function stopBring()
+	if bringAllLoop then
+		bringAllLoop:Disconnect()
+		bringAllLoop = nil
+	end
+	if bringSingleLoop then
+		bringSingleLoop:Disconnect()
+		bringSingleLoop = nil
+	end
+	for _, plr in pairs(game.Players:GetPlayers()) do
+		if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+			local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.PlatformStand = false
+				plr.Character.HumanoidRootPart.CanCollide = true
+			end
+		end
+	end
+end
+
+local function loopBringOne(partialName)
+	if bringSingleLoop then bringSingleLoop:Disconnect() end
+	bringSingleLoop = runService.RenderStepped:Connect(function()
+		local myChar = player.Character
+		if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+		for _, plr in pairs(game.Players:GetPlayers()) do
+			if plr ~= player and string.find(plr.DisplayName:lower(), partialName:lower()) then
+				if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+					local root = plr.Character.HumanoidRootPart
+					local dir = (root.Position - myChar.HumanoidRootPart.Position).Unit
+					root.CFrame = CFrame.new(myChar.HumanoidRootPart.Position + dir * 3)
+					local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+					if hum then
+						hum.PlatformStand = true
+						root.CanCollide = false
+					end
+				end
+			end
+		end
+	end)
+end
+
+-- Button Actions
+bringAllBtn.MouseButton1Click:Connect(loopBringAll)
+stopBtn.MouseButton1Click:Connect(stopBring)
+oneLoopBtn.MouseButton1Click:Connect(function()
+	local name = nameBox.Text
+	if name and name ~= "" then
+		loopBringOne(name)
+	end
+end)
