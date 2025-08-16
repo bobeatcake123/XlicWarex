@@ -2,13 +2,15 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui") -- ✅ use CoreGui so UI stays after death
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- UI Setup
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "XlicWareUI"
+ScreenGui.ResetOnSpawn = false -- ✅ keeps UI alive after respawn
+ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0,360,0,260) -- reduced height to remove empty space
@@ -110,8 +112,12 @@ local function SetWalkSpeed(speed)
     HumanModCons.wsCA = LocalPlayer.CharacterAdded:Connect(function(newChar)
         Char = newChar
         Human = newChar:WaitForChild("Humanoid")
-        WalkSpeedChange()
-        HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+        if walkSpeedEnabled then
+            WalkSpeedChange()
+            HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+        else
+            Human.WalkSpeed = 16 -- ✅ reset back to default if disabled
+        end
     end)
 end
 
