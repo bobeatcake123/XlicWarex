@@ -1,2 +1,254 @@
-down rn
-main
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui") -- ✅ use CoreGui so UI stays after death
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- UI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "XlicWareUI"
+ScreenGui.ResetOnSpawn = false -- ✅ keeps UI alive after respawn
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0,360,0,260) -- reduced height to remove empty space
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -130)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+MainFrame.BackgroundTransparency = 0.5
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.AnchorPoint = Vector2.new(0.5,0.5)
+MainFrame.Parent = ScreenGui
+
+-- Draggable UI
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0,12)
+MainCorner.Parent = MainFrame
+
+-- Outline
+local Outline = Instance.new("UIStroke")
+Outline.Parent = MainFrame
+Outline.Thickness = 4
+Outline.LineJoinMode = Enum.LineJoinMode.Round
+Outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+Outline.Color = Color3.fromRGB(255,255,255)
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,40)
+Title.Position = UDim2.new(0,0,0,0)
+Title.BackgroundTransparency = 1
+Title.Text = "XlicWare"
+Title.Font = Enum.Font.GothamBold
+Title.TextScaled = true
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Parent = MainFrame
+
+-- Button / Box creator
+local function createButton(text, pos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0,160,0,40)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    btn.Text = text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Parent = MainFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,10)
+    corner.Parent = btn
+    return btn
+end
+
+local function createBox(pos, placeholder)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0,160,0,40)
+    box.Position = pos
+    box.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    box.Text = ""
+    box.PlaceholderText = placeholder
+    box.Font = Enum.Font.Gotham
+    box.TextScaled = true
+    box.TextColor3 = Color3.fromRGB(255,255,255)
+    box.Parent = MainFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,10)
+    corner.Parent = box
+    return box
+end
+
+-- Buttons & Textboxes
+local bringAllBtn = createButton("Bring All", UDim2.new(0,10,0,50))
+local bringSelectedBtn = createButton("Bring Selected", UDim2.new(0,190,0,50))
+local walkSpeedBtn = createButton("WalkSpeed On", UDim2.new(0,10,0,100))
+local aimbotBtn = createButton("Aimbot Off", UDim2.new(0,190,0,100))
+local targetBox = createBox(UDim2.new(0,190,0,150),"Enter Display Name")
+local speedBox = createBox(UDim2.new(0,10,0,150),"Type Speed Here")
+
+-- WalkSpeed
+local walkSpeedEnabled = false
+local HumanModCons = {}
+
+local function SetWalkSpeed(speed)
+    local Char = LocalPlayer.Character
+    if not Char then return end
+    local Human = Char:FindFirstChildWhichIsA("Humanoid")
+    if not Human then return end
+    local function WalkSpeedChange()
+        if Char and Human then
+            Human.WalkSpeed = speed
+        end
+    end
+    WalkSpeedChange()
+    if HumanModCons.wsLoop then HumanModCons.wsLoop:Disconnect() end
+    HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+    if HumanModCons.wsCA then HumanModCons.wsCA:Disconnect() end
+    HumanModCons.wsCA = LocalPlayer.CharacterAdded:Connect(function(newChar)
+        Char = newChar
+        Human = newChar:WaitForChild("Humanoid")
+        if walkSpeedEnabled then
+            WalkSpeedChange()
+            HumanModCons.wsLoop = Human:GetPropertyChangedSignal("WalkSpeed"):Connect(WalkSpeedChange)
+        else
+            Human.WalkSpeed = 16 -- ✅ reset back to default if disabled
+        end
+    end)
+end
+
+walkSpeedBtn.MouseButton1Click:Connect(function()
+    walkSpeedEnabled = not walkSpeedEnabled
+    walkSpeedBtn.Text = walkSpeedEnabled and "WalkSpeed On" or "WalkSpeed Off"
+    local speed = tonumber(speedBox.Text) or 16
+    if walkSpeedEnabled then
+        SetWalkSpeed(speed)
+    else
+        if HumanModCons.wsLoop then HumanModCons.wsLoop:Disconnect() HumanModCons.wsLoop = nil end
+        if HumanModCons.wsCA then HumanModCons.wsCA:Disconnect() HumanModCons.wsCA = nil end
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildWhichIsA("Humanoid")
+            if hum then hum.WalkSpeed = 16 end
+        end
+    end
+end)
+
+-- Bring All
+local bringAllActive = false
+bringAllBtn.MouseButton1Click:Connect(function()
+    bringAllActive = not bringAllActive
+    bringAllBtn.Text = bringAllActive and "Unbring All" or "Bring All"
+end)
+
+-- Bring Selected
+local bringSelectedActive = false
+bringSelectedBtn.MouseButton1Click:Connect(function()
+    bringSelectedActive = not bringSelectedActive
+    bringSelectedBtn.Text = bringSelectedActive and "Unbring Selected" or "Bring Selected"
+end)
+
+-- Aimbot
+local aimbotEnabled = false
+local aimbotKey = Enum.KeyCode.C
+local aimbotTarget = nil -- store locked target
+
+aimbotBtn.MouseButton1Click:Connect(function()
+    aimbotEnabled = not aimbotEnabled
+    if not aimbotEnabled then
+        aimbotTarget = nil -- unlock when disabled
+    end
+    aimbotBtn.Text = aimbotEnabled and "Aimbot On" or "Aimbot Off"
+end)
+
+-- Aimbot key changer
+targetBox.FocusLost:Connect(function(enter)
+    local text = targetBox.Text:upper()
+    local suc, key = pcall(function() return Enum.KeyCode[text] end)
+    if suc and key then
+        aimbotKey = key
+    end
+end)
+
+-- Loop Actions
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local offset = CFrame.new(0,0,3)
+
+    -- Bring All Loop
+    if bringAllActive then
+        for _,p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local targetHRP = p.Character.HumanoidRootPart
+                targetHRP.CFrame = hrp.CFrame * offset
+                for _,part in pairs(p.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end
+
+    -- Bring Selected Loop
+    if bringSelectedActive then
+        local targetName = targetBox.Text:lower()
+        for _,p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                if string.sub(p.Name:lower(),1,#targetName) == targetName then
+                    local targetHRP = p.Character.HumanoidRootPart
+                    targetHRP.CFrame = hrp.CFrame * offset
+                    for _,part in pairs(p.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Aimbot
+    if aimbotEnabled then
+        if not aimbotTarget or not aimbotTarget.Character or not aimbotTarget.Character:FindFirstChild("Head") then
+            -- find closest target if none locked
+            local closest = nil
+            local shortest = math.huge
+            for _,p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(screenPos.X,screenPos.Y)-Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)).Magnitude
+                        if dist < shortest then
+                            shortest = dist
+                            closest = p
+                        end
+                    end
+                end
+            end
+            aimbotTarget = closest
+        end
+
+        -- Lock on target
+        if aimbotTarget and aimbotTarget.Character and aimbotTarget.Character:FindFirstChild("Head") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimbotTarget.Character.Head.Position)
+        end
+    end
+end)
+
+-- UI Toggle & Key Input
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.L then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    elseif input.KeyCode == aimbotKey then
+        aimbotEnabled = not aimbotEnabled
+        if not aimbotEnabled then aimbotTarget = nil end
+        aimbotBtn.Text = aimbotEnabled and "Aimbot On" or "Aimbot Off"
+    end
+end)
